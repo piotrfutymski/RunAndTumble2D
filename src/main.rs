@@ -5,36 +5,59 @@ use system::VertexState;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::graphics::{self, Color};
 use ggez::event::{self, EventHandler};
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
     let window_size = 800.0;
+
+    if args.len() < 6 {
+        panic!("not enough arguments");
+    }
 
     let (mut ctx, event_loop) = ContextBuilder::new("my_game", "Cool Game Author")
         .window_mode(ggez::conf::WindowMode::default().dimensions(window_size, window_size))
         .build()
         .expect("aieee, could not create ggez context!");
-    let my_game = Simulation::new(&mut ctx, window_size);
+    let my_game = Simulation::new(&mut ctx, window_size, &args);
     event::run(ctx, event_loop, my_game);
 }
 
 
 struct Simulation {
     system: System,
-    rect_size: f32
+    rect_size: f32,
+    distance: u32,
+    file: File,
+    step_num: u32,
+    max_steps: u32
 }
 
 impl Simulation {
-    pub fn new(_ctx: &mut Context, window_size: f32) -> Simulation {
+    pub fn new(_ctx: &mut Context, window_size: f32, args: &Vec<String>) -> Simulation {
         Simulation {
-            system: System::new(0.02, 200, 800),
-            rect_size: window_size/200.0,
+            system: System::new(args[5].parse::<f64>().unwrap(), args[1].parse::<usize>().unwrap(), args[2].parse::<i32>().unwrap()),
+            rect_size: window_size/args[1].parse::<f32>().unwrap(),
+            distance: args[3].parse::<u32>().unwrap(),
+            file: File::create(format!("data_{}_{}_{}.txt", args[1], args[2], args[3])).expect("Can't create file"),
+            step_num: 0,
+            max_steps: args[4].parse::<u32>().unwrap()
         }
     }
 }
 
 impl EventHandler for Simulation {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.system.step();
+        let r = self.system.calculate_distribution_function(self.distance);
+        println!("{}", r);
+        write!(self.file, "{}\n", r).unwrap();
+        self.step_num+=1;
+        if self.step_num == self.max_steps {
+            ctx.request_quit();
+        }
         Ok(())
     }
 

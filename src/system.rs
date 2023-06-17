@@ -18,6 +18,16 @@ impl VertexState {
     }
 }
 
+fn indexes_in_distance(d: u32) -> Vec<(i32,i32)>{
+    match d {
+        0 =>  vec![(0,0)],
+        1 => vec![(0,1),(0,-1),(1,0),(-1,0)],
+        2 => vec![(0,2),(0,-2),(2,0),(-2,0), (1,1),(1,-1),(-1,1),(-1,-1)],
+        3 => vec![(0,3),(0,-3),(3,0),(-3,0), (1,2),(1,-2),(-1,2),(-1,-2), (2,1),(2,-1),(-2,1),(-2,-1)],
+        _ =>panic!("Not implemented")
+    }
+}
+
 pub struct System{
     particles: Vec<Vec<VertexState>>,
     alfa: f64,
@@ -42,6 +52,8 @@ impl System {
     }
 
     pub fn get_particles(&self) -> &Vec<Vec<VertexState>> {&self.particles}
+
+    pub fn particle_count(&self) -> usize{self.particles.iter().flatten().filter(|&&e|e != VertexState::None).count()}
 
     pub fn step(&mut self){
         let mut set_to_exclude: HashSet<(usize, usize)> = HashSet::new();
@@ -84,6 +96,24 @@ impl System {
             2 => VertexState::Top,
             _ => VertexState::Bottom,
         }
+    }
+
+    pub fn calculate_distribution_function(&self, distance: u32) -> f64{
+        let indexes_in_distance = indexes_in_distance(distance);
+        let l = (0..self.size).into_iter().flat_map(|i|(0..self.size).into_iter().map(move |j|(i,j)))
+            .filter(|&e|self.particles[e.0][e.1] != VertexState::None)
+            .flat_map(|e|indexes_in_distance.iter().map(move |i|{
+                let v_x = e.0 as i32 + i.0;
+                let v_y = e.1 as i32 + i.1;
+                let x = if v_x < 0 { (v_x + self.size as i32) as usize } else if v_x >= self.size as i32{ (v_x - self.size as i32) as usize } else { v_x as usize };
+                let y = if v_y < 0 { (v_y + self.size as i32) as usize } else if v_y >= self.size as i32 { (v_y - self.size as i32) as usize } else { v_y as usize };
+                (x, y)
+            }))
+            .filter(|&e|self.particles[e.0][e.1] != VertexState::None)
+            .count();
+        let m = indexes_in_distance.len() * self.particle_count();
+        (l as f64)/(m as f64)
+
     }
 
 }
